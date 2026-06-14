@@ -2,6 +2,17 @@
 
 All notable changes to the peptide-e2e smoke suite will be documented here.
 
+## [1.5.0] - 2026-06-14
+
+### Added
+- **Board Generate Now smoke (M4, skip-if-absent)** (`06-board-generate-now.spec.ts`).
+  Asserts the PRAutoBlogger board page loads, `#prab-generate-now` button is present
+  and carries a nonce, and the kick-off AJAX action returns valid JSON (no PHP fatal).
+  READ-ONLY: never waits for generation to complete; `kick_off()` is idempotent.
+  SKIPS with a loud annotation when `#prab-board` or `#prab-generate-now` is absent
+  (v0.21.0 M4 not yet deployed) so the e2e PR can merge before prautoblogger PR #166
+  per the M2/M3 merge-order binding. 27 tests total (was 25), delta = 2.
+
 ## [1.4.0] - 2026-06-12
 
 ### Added
