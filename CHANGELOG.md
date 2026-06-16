@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.7.0] - 2026-06-17
+
+### Added
+- **Peptide News admin smoke (07)** (`07-peptide-news-admin.spec.ts`).
+  Covers the Peptide News Plugin admin surfaces: dashboard (HTTP 200, no fatal,
+  h1 "Peptide News Analytics" heading, `.pn-summary-cards`, `.pn-date-filter`),
+  settings (form present), articles, and LLM costs sub-pages. Skip-if-absent guard
+  on all tests using the standard 05/06 merge-early binding pattern. Slugs sourced
+  from `admin/class-pn-admin-menu.php`.
+
+- **PR Vision admin smoke (08)** (`08-pr-vision-admin.spec.ts`).
+  Covers the PR Vision plugin admin surfaces: dashboard (HTTP 200, no fatal,
+  h1 "PR Vision" visible), Settings page (API-key-manager card `#prv-key-card`
+  present, status badge `#prv-key-source-badge` visible), write-only security
+  invariant (`#prv_api_key` value="" + full HTML must not contain "sk-or-"),
+  Costs sub-page (`pr-vision-costs`), and Call Log sub-page (`pr-vision-calls`).
+  Skip-if-absent at two levels: plugin absent (loud annotation + skip), and
+  `#prv-key-card` absent (Settings v0.2.0 not yet deployed on environment).
+  Selectors sourced from `class-prv-admin-page.php`, `class-prv-key-manager-renderer.php`.
+
+
 All notable changes to the peptide-e2e smoke suite will be documented here.
 
 ## [1.6.0] - 2026-06-16
