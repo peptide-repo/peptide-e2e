@@ -185,9 +185,10 @@ test.describe('WP Admin - PR Vision Costs page', () => {
     await expect(page.locator('#wpbody')).toBeVisible();
     const body = (await page.textContent('body')) ?? '';
     expect(body).not.toContain('Fatal error');
-    expect(body).not.toContain('Invalid plugin page');
 
     if (isPluginAbsent(body, page.url())) { skipMissing(); return; }
+
+    expect(body).not.toContain('Invalid plugin page');
   });
 });
 
@@ -199,8 +200,9 @@ test.describe('WP Admin - PR Vision Call Log page', () => {
     await expect(page.locator('#wpbody')).toBeVisible();
     const body = (await page.textContent('body')) ?? '';
     expect(body).not.toContain('Fatal error');
-    expect(body).not.toContain('Invalid plugin page');
 
     if (isPluginAbsent(body, page.url())) { skipMissing(); return; }
+
+    expect(body).not.toContain('Invalid plugin page');
   });
 });
