@@ -1,56 +1,27 @@
-name: CI Bisect Test v2
+name: CI Bisect Test v3
 
 on:
   workflow_call:
     inputs:
-      php_versions:
-        type: string
-        required: false
-        default: '["8.1","8.2","8.3"]'
       tests:
         type: string
         required: false
         default: stubs
-      enforce_300:
-        type: boolean
-        required: false
-        default: true
 
-# NO top-level permissions block here
+# No top-level permissions — only job-level where needed
 
 jobs:
-  lint-php:
-    name: PHP Lint (${{ matrix.php }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        php: ${{ fromJson(inputs.php_versions) }}
-    steps:
-      - run: echo "lint php ${{ matrix.php }}"
-
   phpcs:
     name: PHPCS
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # job-level write for phpcbf commit-back only
+      contents: write
     steps:
-      - run: echo "phpcs"
-
-  file-size:
-    name: 300-line rule
-    runs-on: ubuntu-latest
-    if: ${{ inputs.enforce_300 }}
-    steps:
-      - run: echo "file size check"
-
+      - run: echo "phpcs with write"
+  
   phpunit:
-    name: PHPUnit (${{ inputs.tests }})
+    name: PHPUnit
     runs-on: ubuntu-latest
     if: ${{ inputs.tests != 'none' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        php: ${{ fromJson(inputs.php_versions) }}
     steps:
       - run: echo "phpunit ${{ inputs.tests }}"

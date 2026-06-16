@@ -1,15 +1,15 @@
-name: CI Bisect Caller v2
+name: CI Bisect Caller v3
 
 on:
   push:
     branches: ['claude/**']
 
-# NO permissions block — testing if job-level write in called workflow works
+permissions:
+  contents: write  # needed for called reusable workflow's phpcs job
 
 jobs:
   ci:
     uses: ./.github/workflows/ci-bisect.yml
     with:
       tests: none
-      enforce_300: false
     secrets: inherit
