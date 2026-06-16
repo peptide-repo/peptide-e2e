@@ -175,6 +175,10 @@ jobs:
         # trigger a new CI run — GitHub prevents loops on bot commits.
         if: ${{ github.event_name == 'pull_request' && inputs.phpcs_autofix }}
         run: |
+          if [ ! -f phpcs.xml ] && [ ! -f phpcs.xml.dist ] && [ ! -f .phpcs.xml.dist ]; then
+            echo "No phpcs.xml — phpcbf skipped."
+            exit 0
+          fi
           phpcbf --standard=phpcs.xml \
             --extensions=php \
             --ignore=vendor/*,tests/*,node_modules/* \
@@ -191,7 +195,13 @@ jobs:
         # Runs on all events (push AND pull_request). After phpcbf has committed
         # any auto-fixable issues on PRs, only non-auto-fixable violations land
         # here. On push events phpcbf is skipped but phpcs is still strict.
+        # Guard: skip gracefully if no phpcs.xml exists (repo not yet configured).
         run: |
+          if [ ! -f phpcs.xml ] && [ ! -f phpcs.xml.dist ] && [ ! -f .phpcs.xml.dist ]; then
+            echo "No phpcs.xml / phpcs.xml.dist / .phpcs.xml.dist found — PHPCS skipped."
+            echo "Add a phpcs.xml to enable coding standards enforcement."
+            exit 0
+          fi
           phpcs --standard=phpcs.xml \
             --extensions=php \
             --ignore=vendor/*,tests/*,node_modules/* \
