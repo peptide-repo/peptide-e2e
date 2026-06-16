@@ -1,0 +1,12 @@
+name: Minimal Reusable Test
+
+on:
+  push:
+    branches: ['claude/**']
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci-minimal.yml
+    with:
+      test_input: hello
+    secrets: inherit
