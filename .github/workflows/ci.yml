@@ -175,11 +175,18 @@ jobs:
         # trigger a new CI run — GitHub prevents loops on bot commits.
         if: ${{ github.event_name == 'pull_request' && inputs.phpcs_autofix }}
         run: |
-          if [ ! -f phpcs.xml ] && [ ! -f phpcs.xml.dist ] && [ ! -f .phpcs.xml.dist ]; then
-            echo "No phpcs.xml — phpcbf skipped."
+          # Detect which phpcs config file is present; pass it explicitly to
+          # --standard so phpcbf and phpcs always agree with the guard check.
+          PHPCS_CONFIG=""
+          if [ -f phpcs.xml ]; then PHPCS_CONFIG="phpcs.xml"
+          elif [ -f phpcs.xml.dist ]; then PHPCS_CONFIG="phpcs.xml.dist"
+          elif [ -f .phpcs.xml.dist ]; then PHPCS_CONFIG=".phpcs.xml.dist"
+          fi
+          if [ -z "$PHPCS_CONFIG" ]; then
+            echo "No phpcs.xml / phpcs.xml.dist / .phpcs.xml.dist — phpcbf skipped."
             exit 0
           fi
-          phpcbf --standard=phpcs.xml \
+          phpcbf --standard="$PHPCS_CONFIG" \
             --extensions=php \
             --ignore=vendor/*,tests/*,node_modules/* \
             . || true
@@ -195,14 +202,20 @@ jobs:
         # Runs on all events (push AND pull_request). After phpcbf has committed
         # any auto-fixable issues on PRs, only non-auto-fixable violations land
         # here. On push events phpcbf is skipped but phpcs is still strict.
-        # Guard: skip gracefully if no phpcs.xml exists (repo not yet configured).
+        # Guard: skip gracefully if no phpcs config file exists (repo not yet configured).
         run: |
-          if [ ! -f phpcs.xml ] && [ ! -f phpcs.xml.dist ] && [ ! -f .phpcs.xml.dist ]; then
+          # Detect which phpcs config file is present (mirrors the phpcbf step above).
+          PHPCS_CONFIG=""
+          if [ -f phpcs.xml ]; then PHPCS_CONFIG="phpcs.xml"
+          elif [ -f phpcs.xml.dist ]; then PHPCS_CONFIG="phpcs.xml.dist"
+          elif [ -f .phpcs.xml.dist ]; then PHPCS_CONFIG=".phpcs.xml.dist"
+          fi
+          if [ -z "$PHPCS_CONFIG" ]; then
             echo "No phpcs.xml / phpcs.xml.dist / .phpcs.xml.dist found — PHPCS skipped."
             echo "Add a phpcs.xml to enable coding standards enforcement."
             exit 0
           fi
-          phpcs --standard=phpcs.xml \
+          phpcs --standard="$PHPCS_CONFIG" \
             --extensions=php \
             --ignore=vendor/*,tests/*,node_modules/* \
             --warning-severity=0 \
@@ -223,9 +236,11 @@ jobs:
         # Scans only tracked *.php files under line_limit_paths (not vendor etc.).
         # Prints every offender with its line count, then fails the job so the
         # engineer has a clear list to split.
+        env:
+          # Use env: block to avoid shell-injection from caller-controlled input.
+          PATHS: ${{ inputs.line_limit_paths }}
         run: |
           set -e
-          PATHS="${{ inputs.line_limit_paths }}"
           OFFENDERS=""
           for DIR in $PATHS; do
             if [ ! -e "$DIR" ]; then
@@ -355,11 +370,16 @@ jobs:
       - name: Lint JavaScript
         # Prefer `npm run lint` if the repo defines it (catches ESLint etc.).
         # Fall back to `node --check` syntax-only scan on all *.js files.
+        # NOTE: `npm run lint --if-present` exits 0 even when no lint script
+        # exists (npm 10+ / ubuntu-latest Node 20 behaviour), so the fallback
+        # branch is dead code under --if-present. Instead, explicitly detect
+        # whether a lint script is declared and branch on that.
         run: |
-          if npm run lint --if-present 2>/dev/null; then
-            echo "npm run lint executed."
+          if node -e "process.exit(require('./package.json').scripts?.lint ? 0 : 1)" 2>/dev/null; then
+            echo "npm run lint script found — running it."
+            npm run lint
           else
-            echo "No 'lint' npm script — falling back to node --check syntax scan."
+            echo "No 'lint' npm script — running node --check syntax scan."
             find . -name '*.js' \
               -not -path './vendor/*' \
               -not -path './node_modules/*' \

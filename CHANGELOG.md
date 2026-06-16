@@ -4,6 +4,22 @@ All notable changes to the peptide-e2e smoke suite will be documented here.
 
 ## [1.6.0] - 2026-06-16
 
+## [1.6.1] - 2026-06-16
+
+### Fixed
+- **P2-A injection** (`ci.yml:239`): `${{ inputs.line_limit_paths }}` moved
+  from raw shell assignment into an `env:` block (`PATHS`); shell now reads
+  `$PATHS` — eliminates template-injection surface for caller-supplied input.
+- **P2-B lint-js fallback** (`ci.yml:378`): replaced `npm run lint --if-present`
+  (exits 0 when no lint script exists, killing the fallback branch) with
+  explicit `node -e "process.exit(…)"` detection; `node --check` scan now
+  actually runs when no `lint` npm script is defined.
+- **P2-C phpcs config mismatch** (`ci.yml:178-199, 206-223`): both phpcbf
+  and phpcs steps now detect which of `phpcs.xml` / `phpcs.xml.dist` /
+  `.phpcs.xml.dist` is present and pass that file to `--standard`; guard and
+  command now agree for all three variants.
+
+
 ### Added
 - **Reusable CI workflow** (`.github/workflows/ci.yml`).
   `on: workflow_call` entrypoint that every estate repo will adopt as a thin
