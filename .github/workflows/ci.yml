@@ -50,6 +50,9 @@
 #         and concatenated verbatim — missing slash produces wrong path).
 #   - Every repo calls `composer test` regardless of the `tests` input; the
 #     input only controls environment provisioning, not the command.
+#   - permissions: contents: read at workflow level; the phpcs job sets
+#     contents: write for phpcbf commit-back only. Calling workflows do NOT
+#     need to declare contents: write — job-level override is sufficient.
 ##
 
 name: CI — Reusable
@@ -98,7 +101,7 @@ on:
         type: boolean
 
 permissions:
-  contents: write  # required for phpcbf auto-commit to the PR branch
+  contents: read  # jobs that need write declare it explicitly (phpcs)
 
 jobs:
 
@@ -139,6 +142,8 @@ jobs:
   phpcs:
     name: PHPCS (WordPress standards)
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # allows phpcbf auto-fix commits back to the PR branch
     steps:
       - uses: actions/checkout@v4
         with:

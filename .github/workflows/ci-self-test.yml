@@ -1,10 +1,8 @@
 # Self-test: exercises the reusable ci.yml on this repo itself.
 # Uses tests: none (peptide-e2e is a Playwright/Node repo, no PHP suite).
-# Purpose: smoke-check that the reusable workflow parses and the job
-# skeleton runs without YAML/startup errors.
-#
-# Note: uses a relative path (./.github/workflows/ci.yml) — the correct
-# form for same-repo reusable workflow calls on PR branches.
+# phpcs_autofix: false avoids needing contents: write at the caller level
+# (the phpcs job in ci.yml has its own job-level write permission for phpcbf).
+# Purpose: smoke-check that the reusable workflow skeleton runs without errors.
 
 name: CI Self-Test (reusable ci.yml)
 
