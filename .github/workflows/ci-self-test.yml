@@ -1,8 +1,9 @@
 # Self-test: exercises the reusable ci.yml on this repo itself.
 # Uses tests: none (peptide-e2e is a Playwright/Node repo, no PHP suite).
-# phpcs_autofix: false avoids needing contents: write at the caller level
-# (the phpcs job in ci.yml has its own job-level write permission for phpcbf).
-# Purpose: smoke-check that the reusable workflow skeleton runs without errors.
+# permissions: contents: write is required at the caller level — any caller of
+# ci.yml must declare this so the phpcs job can commit phpcbf fixes back to the
+# PR branch. Even with phpcs_autofix: false here, the permission must be declared
+# for the reusable workflow to pass GH's startup permission-escalation check.
 
 name: CI Self-Test (reusable ci.yml)
 
@@ -11,6 +12,9 @@ on:
     branches: [main, 'claude/**']
   pull_request:
     branches: [main]
+
+permissions:
+  contents: write  # required: called ci.yml phpcs job declares job-level write for phpcbf
 
 jobs:
   ci:

@@ -50,9 +50,11 @@
 #         and concatenated verbatim — missing slash produces wrong path).
 #   - Every repo calls `composer test` regardless of the `tests` input; the
 #     input only controls environment provisioning, not the command.
-#   - permissions: contents: read at workflow level; the phpcs job sets
-#     contents: write for phpcbf commit-back only. Calling workflows do NOT
-#     need to declare contents: write — job-level override is sufficient.
+#   - permissions: the phpcs job declares `contents: write` at job level for
+#     phpcbf commit-back. GitHub requires the CALLING WORKFLOW to also declare
+#     `permissions: contents: write` at the caller's workflow level — GH enforces
+#     that callers cannot be escalated beyond their declared scope, even by job-level
+#     overrides in the reusable workflow. All caller repos must include this.
 ##
 
 name: CI — Reusable
@@ -99,9 +101,6 @@ on:
         required: false
         default: true
         type: boolean
-
-permissions:
-  contents: read  # jobs that need write declare it explicitly (phpcs)
 
 jobs:
 

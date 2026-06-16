@@ -28,6 +28,12 @@ on:
   pull_request:
     branches: [main]
 
+# Required: the called ci.yml phpcs job declares contents: write for phpcbf
+# commit-back. GitHub enforces that callers must grant at least the permission
+# level the reusable workflow's jobs request.
+permissions:
+  contents: write
+
 jobs:
   ci:
     uses: peptiderepo/peptide-e2e/.github/workflows/ci.yml@main
