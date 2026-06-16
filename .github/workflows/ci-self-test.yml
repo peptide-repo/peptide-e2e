@@ -1,0 +1,23 @@
+# Self-test: exercises the reusable ci.yml on this repo itself.
+# Uses tests: none (peptide-e2e is a Playwright/Node repo, no PHP suite)
+# and has_js: false (the JS is TypeScript, not linted via npm run lint here).
+# Purpose: smoke-check that the reusable workflow parses and runs without
+# errors on every push/PR to this repo.
+
+name: CI Self-Test (reusable ci.yml)
+
+on:
+  push:
+    branches: [main, 'claude/**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    uses: peptiderepo/peptide-e2e/.github/workflows/ci.yml@claude/reusable-ci-20260616
+    with:
+      tests: none
+      enforce_300: false
+      has_js: false
+      phpcs_autofix: false
+    secrets: inherit
