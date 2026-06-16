@@ -2,6 +2,44 @@
 
 All notable changes to the peptide-e2e smoke suite will be documented here.
 
+## [1.6.0] - 2026-06-16
+
+## [1.6.1] - 2026-06-16
+
+### Fixed
+- **P2-A injection** (`ci.yml:239`): `${{ inputs.line_limit_paths }}` moved
+  from raw shell assignment into an `env:` block (`PATHS`); shell now reads
+  `$PATHS` — eliminates template-injection surface for caller-supplied input.
+- **P2-B lint-js fallback** (`ci.yml:378`): replaced `npm run lint --if-present`
+  (exits 0 when no lint script exists, killing the fallback branch) with
+  explicit `node -e "process.exit(…)"` detection; `node --check` scan now
+  actually runs when no `lint` npm script is defined.
+- **P2-C phpcs config mismatch** (`ci.yml:178-199, 206-223`): both phpcbf
+  and phpcs steps now detect which of `phpcs.xml` / `phpcs.xml.dist` /
+  `.phpcs.xml.dist` is present and pass that file to `--standard`; guard and
+  command now agree for all three variants.
+
+
+### Added
+- **Reusable CI workflow** (`.github/workflows/ci.yml`).
+  `on: workflow_call` entrypoint that every estate repo will adopt as a thin
+  caller. Inputs: `php_versions` (JSON matrix), `tests`
+  (stubs|wp-framework|brain-monkey|none), `enforce_300`, `line_limit_paths`,
+  `has_js`, `phpcs_autofix`. Fixed job names (`lint-php`, `phpcs`, `file-size`,
+  `phpunit`, `lint-js`) so deploy-app.yml can `needs:` them uniformly.
+  - **phpcbf auto-commit** (prautoblogger gold-standard pattern): on
+    `pull_request` events, phpcbf runs and pushes any fixes back to the branch
+    before strict PHPCS; on `push` events auto-commit is skipped to prevent
+    loops.
+  - **wp-framework PHPUnit path** replicates all three peptide-starter-theme
+    gotchas: (1) install svn; (2) pass skip-db-create=true so the MySQL
+    service's pre-created DB is reused; (3) WP_CORE_DIR trailing slash.
+  - **Self-test caller** (`.github/workflows/ci-self-test.yml`): exercises
+    the reusable workflow on this repo with `tests: none` so the workflow is
+    validated on this PR itself.
+  - **README.md**: adoption snippet documenting how any repo becomes a caller.
+
+
 ## [1.5.0] - 2026-06-14
 
 ### Added

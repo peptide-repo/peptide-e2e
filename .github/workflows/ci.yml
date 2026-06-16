@@ -1,0 +1,388 @@
+##
+# Reusable CI workflow — peptiderepo estate
+#
+# Usage (in any repo's .github/workflows/ci.yml):
+#
+#   jobs:
+#     ci:
+#       uses: peptiderepo/peptide-e2e/.github/workflows/ci.yml@main
+#       with:
+#         tests: stubs       # or wp-framework | brain-monkey | none
+#         has_js: false
+#       secrets: inherit
+#
+# Inputs:
+#   php_versions      (string)  JSON array of PHP versions to matrix over.
+#                               Default: '["8.1","8.2","8.3"]'
+#   tests             (string)  PHPUnit environment. One of:
+#                                 stubs        — WP stubs only; no DB/service; fast.
+#                                 brain-monkey — Brain Monkey mocking; no DB/service.
+#                                 wp-framework — Full WordPress test framework with MySQL.
+#                                 none         — Skip phpunit entirely (temporary; remove
+#                                                at rollout when the repo gains a suite).
+#                               Default: stubs
+#   enforce_300       (boolean) Fail if any tracked *.php under line_limit_paths exceeds
+#                               300 lines (the estate hard rule). Default: true
+#   line_limit_paths  (string)  Space-separated directory/path(s) the 300-line rule
+#                               applies to. Default: 'includes'
+#   has_js            (boolean) Whether to run JS linting. Default: false
+#   phpcs_autofix     (boolean) On pull_request events: run phpcbf and commit any fixes
+#                               back to the branch before strict phpcs. On push events:
+#                               skip the commit (no loop) but still run strict phpcs.
+#                               Default: true
+#
+# Job names (fixed — callers and deploy-app.yml gate on these):
+#   lint-php    PHP syntax check across php_versions matrix.
+#   phpcs       WordPress Coding Standards; phpcbf auto-commit on PRs.
+#   file-size   300-line rule enforcement (skipped when enforce_300: false).
+#   phpunit     PHPUnit across php_versions matrix (skipped when tests: none).
+#   lint-js     JS linting (skipped when has_js: false).
+#
+# Design notes:
+#   - phpcbf auto-commit pattern is the prautoblogger gold standard (see
+#     prautoblogger/.github/workflows/ci.yml). The GITHUB_TOKEN commit does
+#     NOT trigger a new CI run per GitHub's loop-prevention rules.
+#   - WP test framework path replicates peptide-starter-theme's three gotchas:
+#     (1) install svn — ubuntu-latest no longer ships it;
+#     (2) MySQL service pre-creates the DB via MYSQL_DATABASE, so pass
+#         skip-db-create=true as the 6th arg to install-wp-tests.sh;
+#     (3) WP_CORE_DIR must have a trailing slash (bootstrapped into ABSPATH
+#         and concatenated verbatim — missing slash produces wrong path).
+#   - Every repo calls `composer test` regardless of the `tests` input; the
+#     input only controls environment provisioning, not the command.
+#   - permissions: the phpcs job declares `contents: write` at job level for
+#     phpcbf commit-back. GitHub requires the CALLING WORKFLOW to also declare
+#     `permissions: contents: write` at the caller's workflow level — GH enforces
+#     that callers cannot be escalated beyond their declared scope, even by job-level
+#     overrides in the reusable workflow. All caller repos must include this.
+##
+
+name: CI — Reusable
+
+on:
+  workflow_call:
+    inputs:
+      php_versions:
+        description: >-
+          JSON array of PHP versions to matrix over.
+          Example: '["8.1","8.2","8.3"]'
+        required: false
+        default: '["8.1","8.2","8.3"]'
+        type: string
+      tests:
+        description: >-
+          PHPUnit environment. One of: stubs | wp-framework | brain-monkey | none.
+          All environments run `composer test`; this input controls setup only.
+        required: false
+        default: stubs
+        type: string
+      enforce_300:
+        description: >-
+          Fail if any tracked *.php under line_limit_paths exceeds 300 lines.
+        required: false
+        default: true
+        type: boolean
+      line_limit_paths:
+        description: >-
+          Space-separated directory/path(s) to which the 300-line rule applies.
+        required: false
+        default: includes
+        type: string
+      has_js:
+        description: >-
+          Whether to run JS linting (node --check / npm run lint).
+        required: false
+        default: false
+        type: boolean
+      phpcs_autofix:
+        description: >-
+          On pull_request: run phpcbf and commit fixes back to the branch before
+          strict phpcs. On push: skip the commit but still run strict phpcs.
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+
+  # ---------------------------------------------------------------------------
+  # lint-php: PHP syntax check — matrix over php_versions
+  # ---------------------------------------------------------------------------
+  lint-php:
+    name: PHP Lint (${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ${{ fromJson(inputs.php_versions) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+
+      - name: Syntax check all PHP files
+        # Exclude vendor/, node_modules/, .git/, .github/ (mu-plugins may use
+        # version-specific syntax). -P4 parallelises across 4 cores.
+        run: |
+          set -e
+          find . -name '*.php' \
+            -not -path './vendor/*' \
+            -not -path './node_modules/*' \
+            -not -path './.git/*' \
+            -not -path './.github/*' \
+            -print0 | xargs -0 -n1 -P4 php -l > /dev/null
+
+  # ---------------------------------------------------------------------------
+  # phpcs: WordPress Coding Standards + phpcbf auto-fix on PRs
+  # ---------------------------------------------------------------------------
+  phpcs:
+    name: PHPCS (WordPress standards)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # allows phpcbf auto-fix commits back to the PR branch
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Check out the actual PR branch head so phpcbf can push fixes back.
+          # On push events github.head_ref is empty; fall back to github.ref_name.
+          ref: ${{ github.head_ref || github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          coverage: none
+          tools: composer:v2, phpcs
+
+      - name: Install WordPress Coding Standards
+        run: |
+          composer global config --no-plugins \
+            allow-plugins.dealerdirect/phpcodesniffer-composer-installer true
+          composer global require --no-interaction \
+            "dealerdirect/phpcodesniffer-composer-installer:^1.0" \
+            "wp-coding-standards/wpcs:^3.0" \
+            "phpcsstandards/phpcsutils:^1.0" \
+            "phpcsstandards/phpcsextra:^1.0"
+
+      - name: Auto-fix with phpcbf (PR only — commit back to branch if changed)
+        # Only runs on pull_request events AND when phpcs_autofix is enabled.
+        # phpcbf exits 1 when it makes fixes and 0 when nothing to fix; both are
+        # treated as success here (|| true). Commits via GITHUB_TOKEN do NOT
+        # trigger a new CI run — GitHub prevents loops on bot commits.
+        if: ${{ github.event_name == 'pull_request' && inputs.phpcs_autofix }}
+        run: |
+          # Detect which phpcs config file is present; pass it explicitly to
+          # --standard so phpcbf and phpcs always agree with the guard check.
+          PHPCS_CONFIG=""
+          if [ -f phpcs.xml ]; then PHPCS_CONFIG="phpcs.xml"
+          elif [ -f phpcs.xml.dist ]; then PHPCS_CONFIG="phpcs.xml.dist"
+          elif [ -f .phpcs.xml.dist ]; then PHPCS_CONFIG=".phpcs.xml.dist"
+          fi
+          if [ -z "$PHPCS_CONFIG" ]; then
+            echo "No phpcs.xml / phpcs.xml.dist / .phpcs.xml.dist — phpcbf skipped."
+            exit 0
+          fi
+          phpcbf --standard="$PHPCS_CONFIG" \
+            --extensions=php \
+            --ignore=vendor/*,tests/*,node_modules/* \
+            . || true
+          if ! git diff --quiet; then
+            git config user.name "peptiderepo"
+            git config user.email "peptiderepo@users.noreply.github.com"
+            git add -A
+            git commit -m "style: auto-fix PHPCS violations via phpcbf"
+            git push
+          fi
+
+      - name: Run PHPCS strict (fail on remaining violations)
+        # Runs on all events (push AND pull_request). After phpcbf has committed
+        # any auto-fixable issues on PRs, only non-auto-fixable violations land
+        # here. On push events phpcbf is skipped but phpcs is still strict.
+        # Guard: skip gracefully if no phpcs config file exists (repo not yet configured).
+        run: |
+          # Detect which phpcs config file is present (mirrors the phpcbf step above).
+          PHPCS_CONFIG=""
+          if [ -f phpcs.xml ]; then PHPCS_CONFIG="phpcs.xml"
+          elif [ -f phpcs.xml.dist ]; then PHPCS_CONFIG="phpcs.xml.dist"
+          elif [ -f .phpcs.xml.dist ]; then PHPCS_CONFIG=".phpcs.xml.dist"
+          fi
+          if [ -z "$PHPCS_CONFIG" ]; then
+            echo "No phpcs.xml / phpcs.xml.dist / .phpcs.xml.dist found — PHPCS skipped."
+            echo "Add a phpcs.xml to enable coding standards enforcement."
+            exit 0
+          fi
+          phpcs --standard="$PHPCS_CONFIG" \
+            --extensions=php \
+            --ignore=vendor/*,tests/*,node_modules/* \
+            --warning-severity=0 \
+            --report=full \
+            .
+
+  # ---------------------------------------------------------------------------
+  # file-size: 300-line rule enforcement
+  # ---------------------------------------------------------------------------
+  file-size:
+    name: 300-line rule (${{ inputs.line_limit_paths }})
+    runs-on: ubuntu-latest
+    if: ${{ inputs.enforce_300 }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for PHP files over 300 lines
+        # Scans only tracked *.php files under line_limit_paths (not vendor etc.).
+        # Prints every offender with its line count, then fails the job so the
+        # engineer has a clear list to split.
+        env:
+          # Use env: block to avoid shell-injection from caller-controlled input.
+          PATHS: ${{ inputs.line_limit_paths }}
+        run: |
+          set -e
+          OFFENDERS=""
+          for DIR in $PATHS; do
+            if [ ! -e "$DIR" ]; then
+              echo "Warning: path '$DIR' does not exist in this repo — skipping."
+              continue
+            fi
+            while IFS= read -r FILE; do
+              if [ -z "$FILE" ]; then continue; fi
+              LINES=$(wc -l < "$FILE")
+              if [ "$LINES" -gt 300 ]; then
+                OFFENDERS="${OFFENDERS}${LINES} lines: ${FILE}\n"
+              fi
+            done < <(git ls-files -- "$DIR" | grep '\.php$')
+          done
+          if [ -n "$OFFENDERS" ]; then
+            echo "::error::Files exceeding 300-line limit (estate hard rule):"
+            printf "%b" "$OFFENDERS"
+            exit 1
+          fi
+          echo "All tracked PHP files under '$PATHS' are within the 300-line limit."
+
+  # ---------------------------------------------------------------------------
+  # phpunit: PHPUnit — matrix over php_versions
+  # Skipped entirely when tests == 'none'.
+  # ---------------------------------------------------------------------------
+  phpunit:
+    name: PHPUnit — ${{ inputs.tests }} (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    if: ${{ inputs.tests != 'none' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ${{ fromJson(inputs.php_versions) }}
+
+    # MySQL service is declared for all variants but only connected when
+    # tests == 'wp-framework'. On stubs/brain-monkey the service starts but is
+    # never touched — marginal overhead, keeps the YAML unconditional.
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          # The WP test bootstrap expects this DB to exist. Passing
+          # skip-db-create=true (6th arg) to install-wp-tests.sh relies on
+          # MySQL having created it already via this env var.
+          MYSQL_DATABASE: wp_tests
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install subversion (wp-framework only)
+        # ubuntu-latest no longer ships svn. The WP test-suite bootstrap script
+        # checks out develop.svn.wordpress.org via svn.
+        # Gotcha #1 of the three known WP PHPUnit CI gotchas.
+        if: ${{ inputs.tests == 'wp-framework' }}
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends subversion
+
+      - name: Setup PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: composer:v2
+          extensions: ${{ inputs.tests == 'wp-framework' && 'mysqli' || '' }}
+
+      - name: Install Composer dependencies
+        run: composer install --no-progress --no-interaction --prefer-dist
+
+      - name: Wait for MySQL (wp-framework only)
+        if: ${{ inputs.tests == 'wp-framework' }}
+        run: |
+          for i in {1..30}; do
+            if mysqladmin ping -h 127.0.0.1 -P 3306 -u root -proot --silent; then
+              echo "MySQL is up"; break
+            fi
+            echo "Waiting for MySQL... ($i/30)"; sleep 2
+          done
+
+      - name: Install WordPress test suite (wp-framework only)
+        # Gotcha #2: pass skip-db-create=true (6th arg) — the MySQL service
+        #   already created wp_tests via MYSQL_DATABASE; re-creating it fails.
+        # Gotcha #3: WP_CORE_DIR must end with a trailing slash. The bootstrap
+        #   concatenates this verbatim as ABSPATH + 'wp-settings.php'. Without
+        #   the slash: '/tmp/wordpresswp-settings.php' -> fatal bootstrap error.
+        if: ${{ inputs.tests == 'wp-framework' }}
+        env:
+          WP_TESTS_DIR: /tmp/wordpress-tests-lib
+          WP_CORE_DIR: /tmp/wordpress/
+        run: |
+          chmod +x bin/install-wp-tests.sh
+          bin/install-wp-tests.sh wp_tests root root 127.0.0.1:3306 latest true
+
+      - name: Run PHPUnit
+        # Every repo calls `composer test` regardless of environment.
+        # The repo's composer.json `test` script points to vendor/bin/phpunit
+        # with the appropriate phpunit.xml config for that repo.
+        env:
+          WP_TESTS_DIR: /tmp/wordpress-tests-lib
+        run: composer test
+
+  # ---------------------------------------------------------------------------
+  # lint-js: JavaScript linting (only when has_js == true)
+  # ---------------------------------------------------------------------------
+  lint-js:
+    name: JS Lint
+    runs-on: ubuntu-latest
+    if: ${{ inputs.has_js }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Lint JavaScript
+        # Prefer `npm run lint` if the repo defines it (catches ESLint etc.).
+        # Fall back to `node --check` syntax-only scan on all *.js files.
+        # NOTE: `npm run lint --if-present` exits 0 even when no lint script
+        # exists (npm 10+ / ubuntu-latest Node 20 behaviour), so the fallback
+        # branch is dead code under --if-present. Instead, explicitly detect
+        # whether a lint script is declared and branch on that.
+        run: |
+          if node -e "process.exit(require('./package.json').scripts?.lint ? 0 : 1)" 2>/dev/null; then
+            echo "npm run lint script found — running it."
+            npm run lint
+          else
+            echo "No 'lint' npm script — running node --check syntax scan."
+            find . -name '*.js' \
+              -not -path './vendor/*' \
+              -not -path './node_modules/*' \
+              -not -path './.git/*' \
+              -print0 | xargs -0 -I{} node --check {}
+          fi
