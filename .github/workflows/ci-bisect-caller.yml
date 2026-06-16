@@ -1,11 +1,10 @@
-name: CI Bisect Caller
+name: CI Bisect Caller v2
 
 on:
   push:
     branches: ['claude/**']
 
-permissions:
-  contents: write
+# NO permissions block — testing if job-level write in called workflow works
 
 jobs:
   ci:

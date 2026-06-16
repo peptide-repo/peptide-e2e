@@ -1,4 +1,4 @@
-name: CI Bisect Test
+name: CI Bisect Test v2
 
 on:
   workflow_call:
@@ -16,8 +16,7 @@ on:
         required: false
         default: true
 
-permissions:
-  contents: write
+# NO top-level permissions block here
 
 jobs:
   lint-php:
@@ -29,6 +28,14 @@ jobs:
         php: ${{ fromJson(inputs.php_versions) }}
     steps:
       - run: echo "lint php ${{ matrix.php }}"
+
+  phpcs:
+    name: PHPCS
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # job-level write for phpcbf commit-back only
+    steps:
+      - run: echo "phpcs"
 
   file-size:
     name: 300-line rule
