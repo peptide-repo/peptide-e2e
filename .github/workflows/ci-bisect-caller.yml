@@ -1,0 +1,13 @@
+name: CI Bisect Caller
+
+on:
+  push:
+    branches: ['claude/**']
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci-bisect.yml
+    with:
+      tests: none
+      enforce_300: false
+    secrets: inherit

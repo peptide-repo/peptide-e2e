@@ -1,0 +1,49 @@
+name: CI Bisect Test
+
+on:
+  workflow_call:
+    inputs:
+      php_versions:
+        type: string
+        required: false
+        default: '["8.1","8.2","8.3"]'
+      tests:
+        type: string
+        required: false
+        default: stubs
+      enforce_300:
+        type: boolean
+        required: false
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  lint-php:
+    name: PHP Lint (${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ${{ fromJson(inputs.php_versions) }}
+    steps:
+      - run: echo "lint php ${{ matrix.php }}"
+
+  file-size:
+    name: 300-line rule
+    runs-on: ubuntu-latest
+    if: ${{ inputs.enforce_300 }}
+    steps:
+      - run: echo "file size check"
+
+  phpunit:
+    name: PHPUnit (${{ inputs.tests }})
+    runs-on: ubuntu-latest
+    if: ${{ inputs.tests != 'none' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ${{ fromJson(inputs.php_versions) }}
+    steps:
+      - run: echo "phpunit ${{ inputs.tests }}"
