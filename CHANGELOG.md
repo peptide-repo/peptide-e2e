@@ -1,6 +1,13 @@
 # Changelog
 
-## [1.7.1] - 2026-06-17
+## [1.7.2] - 2026-06-17
+
+### Fixed
+- **CI**: Drop `--with-deps` from `npx playwright install chromium` in `smoke.yml`.
+  The `peptide-vps` self-hosted runner has OS-level Playwright deps pre-installed by
+  root; `--with-deps` invokes `apt-get` which requires `sudo`, blocked by the runner's
+  `NoNewPrivileges=true` systemd hardening. Binary-only install works without
+  elevated privileges.## [1.7.1] - 2026-06-17
 
 ### Changed
 - **CI/CD**: Switch `deploy-staging`, `deploy-production`, and `smoke` jobs from
