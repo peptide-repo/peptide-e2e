@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.7.1] - 2026-06-17
+
+### Changed
+- **CI/CD**: Switch `deploy-staging`, `deploy-production`, and `smoke` jobs from
+  `ubuntu-latest` (GitHub-hosted) to `[self-hosted, peptide-vps]` (org runner on
+  KVM8 VPS). This routes all Hostinger SSH/rsync traffic through our stable VPS IP,
+  fixing the Azure-region throttle that caused intermittent deploy failures.
+  Callers' CI/validate jobs are unaffected (remain on `ubuntu-latest`).
+
 ## [1.7.0] - 2026-06-17
 
 ### Added
