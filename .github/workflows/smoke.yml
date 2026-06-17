@@ -53,6 +53,7 @@ jobs:
         run: npm ci
 
       - name: Install Playwright browsers
+        # OS deps pre-installed on the self-hosted runner host; --with-deps needs sudo which the sandbox blocks
         run: npx playwright install chromium
 
       - name: Run smoke tests
