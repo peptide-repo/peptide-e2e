@@ -34,7 +34,11 @@
  *   The stored OpenRouter key must NEVER appear in page source.
  *   #prv_api_key renders with value="" on every page load regardless of
  *   whether a key is stored. This spec asserts the empty value and asserts
- *   that known API key prefixes ("sk-or-") are absent from the full body.
+ *   that no structurally valid key token (regex /sk-or-v1-[A-Za-z0-9]{20,}/)
+ *   appears in the full body HTML. A regex is used instead of a naive
+ *   toContain('sk-or-') to avoid a false-positive on the password input's
+ *   placeholder="sk-or-…" attribute (the ellipsis is a format hint, not a
+ *   token body, and won't match the regex).
  *
  * @see peptiderepo/pr-vision includes/core/class-prv-admin-page.php
  * @see peptiderepo/pr-vision includes/core/class-prv-settings-page.php
@@ -170,10 +174,18 @@ test.describe('WP Admin - PR Vision Settings page (API-key-manager)', () => {
     const inputValue = await keyInput.getAttribute('value');
     expect(inputValue ?? '').toBe('');
 
-    // Security check: known OpenRouter key prefixes must not appear anywhere in
-    // the page HTML -- guards against accidental server-side leakage.
+    // Security check: a *real* OpenRouter key (format "sk-or-v1-<20+ alnum chars>")
+    // must not appear anywhere in the page HTML -- guards against accidental
+    // server-side leakage.
+    //
+    // NOTE: We use a regex rather than the naive toContain('sk-or-') to avoid
+    // a false-positive: the password input carries placeholder="sk-or-…"
+    // (an ellipsis format-hint, not a token body) which contains the literal
+    // string "sk-or-" but is NOT a leaked key.  A regex that requires the
+    // "v1-" segment and at least 20 alphanumeric characters only matches a
+    // structurally valid key, so the placeholder never trips it.
     const html = await page.content();
-    expect(html).not.toContain('sk-or-');
+    expect(html).not.toMatch(/sk-or-v1-[A-Za-z0-9]{20,}/);
   });
 });
 
