@@ -5,7 +5,7 @@
 #
 #   jobs:
 #     ci:
-#       uses: peptiderepo/peptide-e2e/.github/workflows/ci.yml@main
+#       uses: peptide-repo/peptide-e2e/.github/workflows/ci.yml@main
 #       with:
 #         tests: stubs       # or wp-framework | brain-monkey | none
 #         has_js: false

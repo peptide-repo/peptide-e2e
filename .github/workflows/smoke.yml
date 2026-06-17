@@ -39,7 +39,7 @@ jobs:
       - name: Checkout peptide-e2e (explicit — workflow_call defaults to caller repo)
         uses: actions/checkout@v4
         with:
-          repository: peptiderepo/peptide-e2e
+          repository: peptide-repo/peptide-e2e
           ref: main
 
       - name: Set up Node.js
