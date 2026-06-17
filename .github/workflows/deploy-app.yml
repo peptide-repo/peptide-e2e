@@ -35,7 +35,7 @@ permissions:
 jobs:
   deploy-staging:
     name: Deploy to Staging
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, peptide-vps]
     environment: staging
     steps:
       - uses: actions/checkout@v4
@@ -83,7 +83,7 @@ jobs:
     # skipped smoke (run_smoke: false) still allows prod via the if-condition.
     needs: [deploy-staging, smoke]
     if: ${{ !cancelled() && needs.deploy-staging.result == 'success' && needs.smoke.result != 'failure' }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, peptide-vps]
     environment: production
     steps:
       - uses: actions/checkout@v4
