@@ -1,0 +1,19 @@
+[Unit]
+Description=Daily PRAutoBlogger generation at 06:00 UTC
+Documentation=https://github.com/peptide-repo/peptide-e2e/tree/main/infra/vps/
+Requires=prab-generation.service
+
+[Timer]
+# Fire daily at 06:00 UTC — before Hostinger's daily wp-cron window.
+OnCalendar=*-*-* 06:00:00 UTC
+# Persistent=true: if the VPS was down at 06:00 UTC, fire immediately on next
+# boot so at most one day's generation is missed (not deferred indefinitely).
+Persistent=true
+# Up to 5 min random jitter to avoid thundering-herd if multiple VPS instances
+# are ever added. Harmless with a single instance.
+RandomizedDelaySec=300
+# Accuracy within 1 minute (default is 1 minute; explicit for clarity).
+AccuracySec=60
+
+[Install]
+WantedBy=timers.target

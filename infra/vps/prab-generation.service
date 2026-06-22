@@ -1,0 +1,19 @@
+[Unit]
+Description=PRAutoBlogger article generation (VPS orchestrator)
+Documentation=https://github.com/peptide-repo/peptide-e2e/tree/main/infra/vps/
+After=network.target
+# Do not start if the timer fires while another instance is still running.
+# Type=oneshot + TimeoutStartSec enforce this at the systemd level.
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/opt/prab-orchestrator/orchestrate-generation.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=prab-generation
+# Allow up to 2 hours for a full generation run (orchestrate + draft LLM calls).
+# The longest observed single LLM call was 1925s (~32 min); normal runs 2-5 min.
+TimeoutStartSec=7200
+# Do not restart on failure — the timer will retry the next day.
+Restart=no
