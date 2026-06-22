@@ -45,6 +45,21 @@ mkdir -p "${INSTALL_DIR}"
 install -m 0750 "${ORCHESTRATE_SH}" "${INSTALL_DIR}/orchestrate-generation.sh"
 echo "  OK: ${INSTALL_DIR}/orchestrate-generation.sh"
 
+# Pre-seed known_hosts with Hostinger's host key so ssh(1) can verify
+# the server identity without StrictHostKeyChecking=no.
+# ssh-keyscan output is pinned here; re-run if Hostinger rotates its key.
+KNOWN_HOSTS_FILE="${INSTALL_DIR}/known_hosts"
+if [[ ! -f "${KNOWN_HOSTS_FILE}" ]]; then
+  echo "Pre-seeding known_hosts from Hostinger (${SSH_HOST:-145.223.107.228}:${SSH_PORT:-65002})..."
+  ssh-keyscan -p "${SSH_PORT:-65002}" "${SSH_HOST:-145.223.107.228}" \
+    > "${KNOWN_HOSTS_FILE}" 2>/dev/null \
+    && chmod 0600 "${KNOWN_HOSTS_FILE}" \
+    && echo "  OK: ${KNOWN_HOSTS_FILE}" \
+    || echo "  WARN: ssh-keyscan failed — known_hosts not seeded; first SSH will add key via accept-new"
+else
+  echo "  OK: ${KNOWN_HOSTS_FILE} (already exists, not overwritten)"
+fi
+
 echo "Installing systemd units..."
 install -m 0644 "${SERVICE_FILE}" "${SYSTEMD_DIR}/prab-generation.service"
 install -m 0644 "${TIMER_FILE}" "${SYSTEMD_DIR}/prab-generation.timer"

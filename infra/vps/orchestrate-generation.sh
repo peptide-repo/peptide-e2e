@@ -36,6 +36,9 @@ SSH_HOST="${SSH_HOST:-145.223.107.228}"
 SSH_PORT="${SSH_PORT:-65002}"
 SSH_USER="${SSH_USER:-u117248512}"
 WP_PATH="${WP_PATH:-/home/u117248512/domains/peptiderepo.com/public_html}"
+# Known-hosts file pre-seeded by install-orchestrator.sh with Hostinger's host key.
+# Pins the server identity; StrictHostKeyChecking=accept-new adds on first connect.
+KNOWN_HOSTS="${KNOWN_HOSTS:-/opt/prab-orchestrator/known_hosts}"
 
 # ---------------------------------------------------------------------------
 # Logging helpers
@@ -66,7 +69,7 @@ fi
 # ---------------------------------------------------------------------------
 if [[ "${DRY_RUN}" == "1" ]]; then
   log "DRY_RUN=1 — echoing commands only, no generation"
-  log "WOULD RUN: ssh -i ${SSH_KEY} -p ${SSH_PORT} -o StrictHostKeyChecking=no -o ConnectTimeout=15 ${SSH_USER}@${SSH_HOST} \\"
+  log "WOULD RUN: ssh -i ${SSH_KEY} -p ${SSH_PORT} -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 ${SSH_USER}@${SSH_HOST} \\"
   log "  'wp prautoblogger generate --sync --path=${WP_PATH} 2>&1'"
   log "DRY_RUN complete"
   exit 0
@@ -90,7 +93,8 @@ REAP_OUT=""
 # shellcheck disable=SC2029
 REAP_OUT="$(ssh -i "${SSH_KEY}" \
     -p "${SSH_PORT}" \
-    -o StrictHostKeyChecking=no \
+    -o StrictHostKeyChecking=accept-new \
+    -o UserKnownHostsFile="${KNOWN_HOSTS}" \
     -o ConnectTimeout=15 \
     -o ServerAliveInterval=60 \
     -o ServerAliveCountMax=30 \
@@ -112,7 +116,8 @@ EXIT_CODE=0
 # shellcheck disable=SC2029
 RESULT_OUTPUT="$(ssh -i "${SSH_KEY}" \
     -p "${SSH_PORT}" \
-    -o StrictHostKeyChecking=no \
+    -o StrictHostKeyChecking=accept-new \
+    -o UserKnownHostsFile="${KNOWN_HOSTS}" \
     -o ConnectTimeout=15 \
     -o ServerAliveInterval=60 \
     -o ServerAliveCountMax=30 \
