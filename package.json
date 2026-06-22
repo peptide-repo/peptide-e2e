@@ -1,6 +1,6 @@
 {
   "name": "peptide-e2e",
-  "version": "1.7.2",
+  "version": "1.8.0",
   "description": "Playwright smoke tests for peptiderepo.com (staging + production)",
   "private": true,
   "scripts": {

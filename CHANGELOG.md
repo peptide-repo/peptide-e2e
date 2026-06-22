@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.8.0] - 2026-06-23
+
+### Added
+- **`infra/vps/` PRAB generation orchestrator**: systemd timer + service + bash
+  script that SSHes from the Coolify KVM8 VPS to Hostinger and drives
+  `wp prautoblogger generate --sync` in a held-open SSH session. Sidesteps
+  Hostinger's ~10-min background-PHP-process kill that was blocking full
+  generation runs. Components:
+  - `orchestrate-generation.sh`: main script with DRY_RUN mode, structured
+    logging, reaper pre-sweep, failure email alert, and shellcheck-clean quoting.
+  - `prab-generation.service` / `prab-generation.timer`: systemd oneshot service
+    (2h timeout, no auto-restart) + daily 06:00 UTC timer with 5-min jitter.
+  - `install-orchestrator.sh`: one-time setup script; installs units but does NOT
+    enable the timer (requires explicit CEO greenlight post-QA).
+  - Security: `StrictHostKeyChecking=accept-new` with pre-seeded known_hosts for
+    the Hostinger IP; no hardcoded secrets; SSH key referenced by env-var path.
+
 ## [1.7.2] - 2026-06-17
 
 ### Fixed
